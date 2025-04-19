@@ -2,8 +2,10 @@ package analyzer
 
 import (
 	"encoding/json"
+	"log"
 	"strconv"
 	"strings"
+	"sync"
 	"time"
 
 	"github.com/sandeepgautam213/eth-flow-analyzer/internal/etherscan"
@@ -17,19 +19,65 @@ type Payer struct {
 }
 
 func AnalyzePayers(address string) []Payer {
-	normalRaw, _ := etherscan.FetchTxs(address, "txlist")
-	internalRaw, _ := etherscan.FetchTxs(address, "txlistinternal")
+	var wg sync.WaitGroup
+	wg.Add(2)
 
-	var normalData, internalData TxResult
-	json.Unmarshal(normalRaw, &normalData)
-	json.Unmarshal(internalRaw, &internalData)
+	payerMap := make(map[string][]TxInfo)
+	payerTotals := make(map[string]float64)
+	var mu sync.Mutex
 
-	allTxs := append(normalData.Result, internalData.Result...)
+	go func() {
+		defer wg.Done()
+		normal := parsePayerTxs(address, "txlist")
+		mu.Lock()
+		mergePayers(payerMap, payerTotals, normal)
+		mu.Unlock()
+	}()
+
+	go func() {
+		defer wg.Done()
+		internal := parsePayerTxs(address, "txlistinternal")
+		mu.Lock()
+		mergePayers(payerMap, payerTotals, internal)
+		mu.Unlock()
+	}()
+
+	wg.Wait()
+
+	var payers []Payer
+	for from, txs := range payerMap {
+		earliest := txs[0].DateTime
+		for _, tx := range txs {
+			if tx.DateTime < earliest {
+				earliest = tx.DateTime
+			}
+		}
+
+		payers = append(payers, Payer{
+			PayerAddress: from,
+			Amount:       payerTotals[from],
+			Date:         earliest,
+			Transactions: txs,
+		})
+	}
+
+	return payers
+}
+
+func parsePayerTxs(address string, action string) []Payer {
+	raw, err := etherscan.FetchTxs(address, action)
+	if err != nil {
+		log.Println("Error fetching ", action, "transactions:", err)
+		return nil
+	}
+
+	var data TxResult
+	json.Unmarshal(raw, &data)
 
 	payerMap := make(map[string][]TxInfo)
 	payerTotals := make(map[string]float64)
 
-	for _, tx := range allTxs {
+	for _, tx := range data.Result {
 		if strings.ToLower(tx.To) != strings.ToLower(address) {
 			continue
 		}
@@ -50,23 +98,21 @@ func AnalyzePayers(address string) []Payer {
 		payerTotals[tx.From] += amt
 	}
 
-	var payers []Payer
+	var result []Payer
 	for from, txs := range payerMap {
-
-		earliest := txs[0].DateTime
-		for _, tx := range txs {
-			if tx.DateTime < earliest {
-				earliest = tx.DateTime
-			}
-		}
-
-		payers = append(payers, Payer{
+		result = append(result, Payer{
 			PayerAddress: from,
 			Amount:       payerTotals[from],
-			Date:         earliest,
 			Transactions: txs,
 		})
 	}
 
-	return payers
+	return result
+}
+
+func mergePayers(dest map[string][]TxInfo, totals map[string]float64, incoming []Payer) {
+	for _, p := range incoming {
+		dest[p.PayerAddress] = append(dest[p.PayerAddress], p.Transactions...)
+		totals[p.PayerAddress] += p.Amount
+	}
 }
