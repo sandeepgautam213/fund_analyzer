@@ -1,6 +1,6 @@
-# Ethereum Fund Flow Analyzer
+# 🧾 Ethereum Fund Flow Analyzer
 
-This Go-based microservice analyzes Ethereum fund movements for any wallet address using the Etherscan API. It provides structured JSON responses for inflow (/payer) and outflow (/beneficiary) tracing, including support for ETH, ERC-20, ERC-721, and ERC-1155 tokens.
+This Go-based microservice analyzes Ethereum fund flows for any wallet address using the Etherscan API. It provides structured JSON responses for inflow (`/payer`) and outflow (`/beneficiary`) tracking, including support for ETH, ERC-20, ERC-721, and ERC-1155 tokens.
 
 ---
 
@@ -12,8 +12,8 @@ This Go-based microservice analyzes Ethereum fund movements for any wallet addre
   - ✅ ERC-20 token transfers
   - ✅ ERC-721 NFT transfers
   - ✅ ERC-1155 batch token transfers (via logs)
-- Includes date-wise breakdown of transactions
-- Clean, Dockerized deployment
+- Uses concurrency (goroutines + WaitGroups) for fast data aggregation
+- Dockerized for easy deployment
 
 ---
 
@@ -25,6 +25,12 @@ eth-flow-analyzer/
 ├── config/             # .env loader
 ├── internal/
 │   ├── analyzer/       # Transaction parsing logic
+│   │   ├── eth.go
+│   │   ├── erc20.go
+│   │   ├── erc721.go
+│   │   ├── erc1155.go
+│   │   ├── payer.go
+│   │   └── analyzer.go
 │   ├── handler/        # API endpoints
 │   └── etherscan/      # Etherscan client logic
 ├── go.mod / go.sum
@@ -47,7 +53,9 @@ cd eth-flow-analyzer
 
 ### 2. Add Etherscan API Key
 
-Create a file called .env:
+Create a file called `.env`:
+
+  cp .env.example .env
 
 ```
 ETHERSCAN_API_KEY=your_actual_etherscan_key_here
@@ -61,8 +69,6 @@ go run ./cmd/main.go
 
 ### 4. Or Run via Docker
 
-Build and start the container:
-
 ```bash
 docker compose build
 docker compose up
@@ -74,38 +80,17 @@ API will be available at: `http://localhost:8080`
 
 ## 🔗 API Endpoints
 
-### GET /beneficiary
+### GET `/beneficiary?address=0x...`
 
-Tracks where funds have been sent by a wallet address.
+Tracks outgoing flows (ETH, ERC-20, NFT, ERC-1155) from the address.
 
-Query:
-```
-/beneficiary?address=0xYourAddressHere
-```
+### GET `/payer?address=0x...`
 
-Returns:
-- List of beneficiary addresses
-- Total amount sent to each
-- Transaction history with timestamps and tx hashes
-
-### GET /payer
-
-Tracks sources of funds sent to the given address.
-
-Query:
-```
-/payer?address=0xYourAddressHere
-```
-
-Returns:
-- List of payer addresses
-- Total amount received from each
-- Transaction history
-- Earliest transaction timestamp ("date")
+Tracks incoming ETH flows to the address.
 
 ---
 
-## 📦 Sample Output Format
+## 🧪 Sample Output Format
 
 ```json
 {
@@ -129,9 +114,25 @@ Returns:
 
 ---
 
+## 🧠 ERC-1155 Analyzer Notes
+
+ERC-1155 transfers are decoded using Etherscan's logs API. The service parses `TransferSingle` events:
+
+```
+TransferSingle(address operator, address from, address to, uint256 id, uint256 value)
+```
+
+Each log is decoded to extract:
+- From / To address
+- Token ID
+- Value transferred
+- Timestamp (block time)
+
+---
+
 ## 📹 Demo Video
 
-🎥 Link: [Google Drive Demo](https://your-demo-link.com)
+📎 Link: [Google Drive Demo](https://your-demo-link.com)
 
 ---
 
@@ -139,13 +140,12 @@ Returns:
 
 - Uses public Etherscan API endpoints
 - Basic validation for Ethereum address format
-- ERC-1155 parsed via log decoding using TransferSingle
+- Safe concurrency with goroutines + WaitGroups
 - Production-ready Dockerfile + docker-compose
 
 ---
 
 ## 👨‍💻 Author
 
-Sandeep Gautam  
-Blockchain Developer Assignment 
-
+[Sandeep Gautam](https://www.linkedin.com/in/gautams1401/)  
+Blockchain Developer Assignment – 
