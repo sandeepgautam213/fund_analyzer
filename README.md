@@ -132,7 +132,7 @@ Each log is decoded to extract:
 
 ## 📹 Demo Video
 
-📎 Link: [Google Drive Demo](https://your-demo-link.com)
+📎 Link: [Demo](https://www.loom.com/share/f3fbf06f141f4633b8d6bb1a6d0c28b1?sid=b2ba923e-7db1-4cb8-982f-4169aec5f418)
 
 ---
 
