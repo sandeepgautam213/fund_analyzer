@@ -5,10 +5,6 @@ import (
 	"sync"
 )
 
-type resultMsg struct {
-	data []Beneficiary
-}
-
 // AnalyzeAddress concurrently fetches ETH, token, NFT, and ERC1155 transactions using WaitGroup
 func AnalyzeAddress(address string) []Beneficiary {
 	var wg sync.WaitGroup

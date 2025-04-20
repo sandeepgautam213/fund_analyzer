@@ -32,7 +32,7 @@ func ParseETHTransfers(address string) []Beneficiary {
 		return nil
 	}
 
-	allTxs := append(normalData.Result, internalData.Result...)
+	allTxs := append(normalData.Result, internalData.Result...) // Merge both sets of transactions
 	beneficiariesMap := make(map[string][]TxInfo)
 	totals := make(map[string]float64)
 

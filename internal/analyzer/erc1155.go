@@ -27,20 +27,22 @@ type LogResponse struct {
 }
 
 func FetchAndParseERC1155Logs(address string) []Beneficiary {
-	var results []Beneficiary
-	beneficiariesMap := make(map[string][]TxInfo)
-	totals := make(map[string]float64)
+	var results []Beneficiary                     // Final list of beneficiaries
+	beneficiariesMap := make(map[string][]TxInfo) // Map to group transactions by receiver and tokenID
+	totals := make(map[string]float64)            // Map to store total tokens received by each group
 
 	// OpenSea Shared Storefront - ERC-1155 contract
 	erc1155Contract := "0x495f947276749ce646f68ac8c248420045cb7b5e"
+	// Keccak-256 hash of TransferSingle event signature
 	topicTransferSingle := "0xc3d58168c5bfaa58138de29b8634c2d14f7145e7f7a579f8b0b0b6b7f6fe15f6"
 
+	// Fetch logs from Etherscan for the TransferSingle event
 	logRaw, err := etherscan.FetchERC1155Logs(erc1155Contract, "0", "latest", topicTransferSingle)
 	if err != nil {
 		log.Println("Error fetching ERC-1155 logs:", err)
 		return nil
 	}
-
+	// Unmarshal JSON into Go struct
 	var logs LogResponse
 	err = json.Unmarshal(logRaw, &logs)
 	if err != nil {
@@ -49,6 +51,7 @@ func FetchAndParseERC1155Logs(address string) []Beneficiary {
 	}
 
 	for _, l := range logs.Result {
+		// Skip invalid logs with missing topics
 		if len(l.Topics) < 4 {
 			continue
 		}
@@ -58,7 +61,7 @@ func FetchAndParseERC1155Logs(address string) []Beneficiary {
 		if strings.ToLower(toAddr) == strings.ToLower(address) {
 			continue // skip self-transfer
 		}
-
+		// Convert the token ID from hex to big.Int
 		tokenId := new(big.Int)
 		tokenId.SetString(l.Topics[3][2:], 16)
 
@@ -79,7 +82,9 @@ func FetchAndParseERC1155Logs(address string) []Beneficiary {
 		}
 
 		key := fmt.Sprintf("%s (ERC1155 #%s)", toAddr, tokenId.String())
+		// Append transaction info to the corresponding address+tokenID group
 		beneficiariesMap[key] = append(beneficiariesMap[key], txinfo)
+		// Track total amount per key
 		totals[key] += float64(amount.Int64())
 	}
 
@@ -87,7 +92,7 @@ func FetchAndParseERC1155Logs(address string) []Beneficiary {
 		results = append(results, Beneficiary{
 			BeneficiaryAddress: addr,
 			Amount:             totals[addr],
-			Transactions:       txs,
+			Transactions:       txs, // All transactions to that address+tokenID
 		})
 	}
 
