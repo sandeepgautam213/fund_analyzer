@@ -2,51 +2,23 @@ package analyzer
 
 import (
 	"log"
-	"sync"
 )
 
-// AnalyzeAddress concurrently fetches ETH, token, NFT, and ERC1155 transactions using WaitGroup
+// AnalyzeAddress concurrently fetches ETH, token, NFT, and ERC1155 transactions using Channels
 func AnalyzeAddress(address string) []Beneficiary {
-	var wg sync.WaitGroup
-	var mu sync.Mutex
+	resultChan := make(chan []Beneficiary, 4)
+
+	go func() { resultChan <- ParseETHTransfers(address) }()
+	go func() { resultChan <- ParseERC20Transfers(address) }()
+	go func() { resultChan <- ParseERC721Transfers(address) }()
+	go func() { resultChan <- FetchAndParseERC1155Logs(address) }()
+
 	var result []Beneficiary
+	for i := 0; i < 4; i++ {
+		partial := <-resultChan
+		result = append(result, partial...)
+	}
 
-	wg.Add(4)
-
-	go func() {
-		defer wg.Done()
-		eth := ParseETHTransfers(address)
-		mu.Lock()
-		result = append(result, eth...)
-		mu.Unlock()
-	}()
-
-	go func() {
-		defer wg.Done()
-		erc20 := ParseERC20Transfers(address)
-		mu.Lock()
-		result = append(result, erc20...)
-		mu.Unlock()
-	}()
-
-	go func() {
-		defer wg.Done()
-		erc721 := ParseERC721Transfers(address)
-		mu.Lock()
-		result = append(result, erc721...)
-		mu.Unlock()
-	}()
-
-	go func() {
-		defer wg.Done()
-		erc1155 := FetchAndParseERC1155Logs(address)
-		mu.Lock()
-		result = append(result, erc1155...)
-		mu.Unlock()
-	}()
-
-	wg.Wait()
-
-	log.Printf("AnalyzeAddress (WaitGroup): found %d beneficiary entries", len(result))
+	log.Printf("AnalyzeAddress (Channel): found %d beneficiary entries", len(result))
 	return result
 }
