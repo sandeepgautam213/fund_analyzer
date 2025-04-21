@@ -43,7 +43,12 @@ func ParseERC20Transfers(address string) []Beneficiary {
 
 		tokenAmount, _ := strconv.ParseFloat(tx.Value, 64)
 		// Convert token decimal value to integer
-		decimals, _ := strconv.Atoi(tx.TokenDecimal)
+		decimals, err := strconv.Atoi(tx.TokenDecimal)
+		if err != nil {
+			log.Printf("Invalid TokenDecimal '%s' for token %s in tx %s", tx.TokenDecimal, tx.TokenSymbol, tx.Hash)
+			continue
+		}
+
 		// Normalize token amount using token decimals (i.e., divide by 10^decimals)
 		tokenAmount /= pow10(decimals)
 		// Convert timestamp (string) to Unix time (int64)

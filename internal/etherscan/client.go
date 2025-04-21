@@ -11,7 +11,7 @@ import (
 func FetchTxs(address string, action string) ([]byte, error) {
 	apiKey := os.Getenv("ETHERSCAN_API_KEY")
 	url := fmt.Sprintf(
-		"https://api.etherscan.io/api?module=account&action=%s&address=%s&startblock=0&endblock=99999999&sort=asc&apikey=%s",
+		"https://api.etherscan.io/api?module=account&action=%s&address=%s&startblock=0&endblock=99999999&sort=desc&apikey=%s",
 		action, address, apiKey,
 	)
 
